@@ -1,0 +1,383 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width,initial-scale=1" />
+  <title>Voice Command Shopping Assistant — GSAP + Toasts</title>
+
+  <!-- Bootstrap (layout + toasts) -->
+  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
+  <!-- Font Awesome -->
+  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+
+  <style>
+    :root{
+      --bg:#f6f8fb; --card:#fff; --muted:#6c757d; --text:#0f1724;
+      --accent:#0b7bff; --accent-2:#7c3aed; --chip-bg:#fff; --shadow:0 8px 30px rgba(11,123,255,0.06);
+    }
+    .dark { --bg:#071020; --card:#0f1724; --muted:#9aa6b2; --text:#e6eef8; --accent:#2da9ff; --accent-2:#a78bfa; --chip-bg:rgba(255,255,255,0.03); --shadow:0 8px 30px rgba(2,6,23,0.6); }
+
+    body{ background: linear-gradient(180deg,var(--bg), #eef4ff 120%); color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Arial; transition: background .25s, color .25s; }
+    .app{ max-width:1100px; margin:30px auto; padding:12px; }
+
+    .hero{ background: linear-gradient(90deg, rgba(11,123,255,0.06), rgba(124,58,237,0.03)); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; justify-content:space-between; gap:12px; align-items:center; }
+    .hero h2{ margin:0; }
+
+    .mic { display:inline-flex; gap:10px; align-items:center; padding:10px 16px; border-radius:12px; color:#fff; background:linear-gradient(90deg,var(--accent),var(--accent-2)); cursor:pointer; box-shadow:0 10px 30px rgba(11,123,255,0.12); transform-origin:center; }
+    .mic i { font-size:16px; }
+    .mic .label { font-weight:700; letter-spacing:0.01em; }
+    .mic.listening { background: linear-gradient(90deg,#ff6b6b,#ff3d3d); }
+
+    .card-panel{ background:var(--card); border-radius:12px; padding:14px; box-shadow:var(--shadow); }
+
+    .item-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 6px; border-radius:8px; margin-bottom:8px; background:transparent; }
+    .quantity{ background:var(--chip-bg); padding:6px 10px; border-radius:8px; font-weight:700; color:var(--accent); border:1px solid rgba(0,0,0,0.04); margin-right:10px; }
+    .remove-btn{ background:transparent; border:0; color:var(--muted); cursor:pointer; padding:6px 8px; border-radius:8px; }
+    .remove-btn:hover{ color:var(--accent); transform:translateY(-3px); }
+
+    .chip{ display:inline-block; padding:8px 12px; border-radius:999px; margin:6px 6px 6px 0; cursor:pointer; background:var(--chip-bg); border:1px solid rgba(0,0,0,0.04); box-shadow:0 4px 12px rgba(11,123,255,0.04); transform-origin:center; }
+
+    .muted{ color:var(--muted); }
+
+    /* Toast container override: place top-right */
+    .toast-wrapper {
+      position: fixed;
+      top: 20px;
+      right: 20px;
+      z-index: 2147483647;
+      display: flex;
+      flex-direction: column;
+      gap: 10px;
+      align-items: flex-end;
+      pointer-events: none;
+    }
+    .toast-wrapper .toast {
+      pointer-events: auto;
+      width: 320px;
+      border-radius: 10px;
+      overflow: hidden;
+    }
+  </style>
+</head>
+<body>
+  <div class="app">
+    <div class="hero">
+      <div>
+        <h2>Voice Command Shopping Assistant</h2>
+        <div class="muted">Say: "Add 2 milk", "Remove eggs", "Find apples", "Suggest"</div>
+      </div>
+
+      <div class="d-flex gap-3 align-items-center">
+        <div id="micBtn" class="mic" role="button" title="Click to toggle listening">
+          <i id="micIcon" class="fa fa-microphone"></i>
+          <span class="label" id="micLabel">Start</span>
+        </div>
+
+        <div class="d-flex gap-2 align-items-center">
+          <label class="muted mb-0 me-1">Theme</label>
+          <select id="themeColor" class="form-select form-select-sm">
+            <option value="blue" selected>Blue</option>
+            <option value="purple">Purple</option>
+            <option value="green">Green</option>
+            <option value="red">Red</option>
+          </select>
+          <div class="form-check form-switch ms-2">
+            <input class="form-check-input" type="checkbox" id="darkToggle">
+            <label class="form-check-label muted" for="darkToggle">Dark</label>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <div style="height:16px"></div>
+
+    <div class="row g-3">
+      <div class="col-lg-7">
+        <div class="card-panel">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 style="margin:0">Your Shopping List</h5>
+            <div class="muted">Auto-categorized</div>
+          </div>
+
+          <div id="shopping-list"></div>
+
+          <div class="mt-3 text-end">
+            <button id="clearBtn" class="btn btn-outline-danger btn-sm">Clear</button>
+          </div>
+        </div>
+      </div>
+
+      <div class="col-lg-5">
+        <div class="card-panel">
+          <div class="d-flex justify-content-between align-items-center mb-2">
+            <h5 style="margin:0">Suggestions</h5>
+            <div class="muted">Tap a chip to add</div>
+          </div>
+          <div id="suggestions" style="min-height:90px"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- Toast wrapper -->
+  <div class="toast-wrapper" id="toastWrapper"></div>
+
+  <!-- GSAP (core) -->
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
+  <!-- Bootstrap JS -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+
+  <script>
+    // ---------- elements ----------
+    const micBtn = document.getElementById('micBtn');
+    const micIcon = document.getElementById('micIcon');
+    const micLabel = document.getElementById('micLabel');
+    const shoppingListDiv = document.getElementById('shopping-list');
+    const suggestionsDiv = document.getElementById('suggestions');
+    const clearBtn = document.getElementById('clearBtn');
+    const themeColor = document.getElementById('themeColor');
+    const darkToggle = document.getElementById('darkToggle');
+    const toastWrapper = document.getElementById('toastWrapper');
+
+    // state
+    let recognition = null;
+    let listening = false;
+    let interimTranscript = '';
+
+    // palettes
+    const palettes = {
+      blue: {accent:'#0b7bff', accent2:'#7c3aed'},
+      purple: {accent:'#7c3aed', accent2:'#ff7ab6'},
+      green: {accent:'#16a34a', accent2:'#34d399'},
+      red: {accent:'#ff4d4f', accent2:'#ff7b6b'}
+    };
+    function applyPalette(name){
+      const p = palettes[name] || palettes.blue;
+      document.documentElement.style.setProperty('--accent', p.accent);
+      document.documentElement.style.setProperty('--accent-2', p.accent2);
+      gsap.to(micBtn, { background: `linear-gradient(90deg, ${p.accent}, ${p.accent2})`, duration: 0.35 });
+    }
+    themeColor.addEventListener('change', ()=> applyPalette(themeColor.value));
+    applyPalette(themeColor.value);
+    darkToggle.addEventListener('change', () => {
+      if (darkToggle.checked) document.documentElement.classList.add('dark');
+      else document.documentElement.classList.remove('dark');
+    });
+
+    // ---------- recognition ----------
+    function initRecognition(){
+      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
+        showToast('Speech Recognition not supported — use Chrome', 'warning');
+        return;
+      }
+      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-US';
+      recognition.interimResults = true;
+      recognition.continuous = false;
+      recognition.maxAlternatives = 1;
+
+      recognition.onstart = () => {
+        listening = true;
+        micBtn.classList.add('listening');
+        micLabel.textContent = 'Listening...';
+        startMicPulse();
+      };
+      recognition.onend = () => {
+        listening = false;
+        micBtn.classList.remove('listening');
+        micLabel.textContent = 'Start';
+        stopMicPulse();
+        if (interimTranscript && interimTranscript.trim()) {
+          sendCommand(interimTranscript);
+          interimTranscript = '';
+        }
+      };
+      recognition.onerror = (e) => {
+        listening = false;
+        micBtn.classList.remove('listening');
+        micLabel.textContent = 'Start';
+        stopMicPulse();
+        showToast('Recognition error: ' + (e.error || 'unknown'), 'danger');
+      };
+      recognition.onresult = (evt) => {
+        let transcript = '';
+        for (let i=0;i<evt.results.length;i++) transcript += evt.results[i][0].transcript;
+        interimTranscript = transcript;
+        micBtn.setAttribute('data-heard', transcript);
+        if (evt.results[0].isFinal) {
+          sendCommand(transcript);
+          interimTranscript = '';
+        }
+      };
+    }
+
+    micBtn.addEventListener('click', ()=>{
+      if (!recognition) initRecognition();
+      if (!recognition) return;
+      try {
+        if (!listening) recognition.start();
+        else recognition.stop();
+      } catch(e) { console.warn(e); }
+    });
+
+    // ---------- mic pulse using GSAP ----------
+    let micPulseTween = null;
+    function startMicPulse(){
+      if (micPulseTween) micPulseTween.kill();
+      micPulseTween = gsap.to(micBtn, { scale: 1.04, yoyo: true, repeat: -1, duration: 0.7, ease: "sine.inOut", boxShadow: "0 16px 46px rgba(255,59,59,0.16)" });
+    }
+    function stopMicPulse(){
+      if (micPulseTween) micPulseTween.kill();
+      gsap.to(micBtn, { scale:1, boxShadow: "0 10px 30px rgba(11,123,255,0.12)", duration:0.28 });
+    }
+
+    // ---------- toast helper (Bootstrap + GSAP) ----------
+    // types: success, info, warning, danger
+    function showToast(message, type='success', timeout=3200) {
+      // create toast element
+      const id = 'toast-' + Date.now();
+      const bg = type==='success' ? 'text-bg-success' : type==='danger' ? 'text-bg-danger' : type==='warning' ? 'text-bg-warning' : 'text-bg-info';
+      const icon = type==='success' ? 'fa-check-circle' : type==='danger' ? 'fa-exclamation-circle' : type==='warning' ? 'fa-triangle-exclamation' : 'fa-info-circle';
+      const toastHtml = `
+        <div id="${id}" class="toast ${bg} align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
+          <div class="d-flex">
+            <div class="toast-body">
+              <i class="fa ${icon}" style="margin-right:8px"></i>${escapeHtml(message)}
+            </div>
+            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
+          </div>
+        </div>`;
+      // append DOM
+      const tmp = document.createElement('div');
+      tmp.innerHTML = toastHtml;
+      const toastEl = tmp.firstElementChild;
+      toastWrapper.prepend(toastEl);
+
+      // set initial invisible state to animate in
+      gsap.set(toastEl, { x: 40, opacity: 0, scale: 0.96 });
+
+      // use Bootstrap toast API to handle autohide/hide
+      const bsToast = new bootstrap.Toast(toastEl, { delay: timeout, autohide: true });
+
+      // animate in with GSAP, then show bootstrap (which controls aria-hidden)
+      gsap.to(toastEl, { x: 0, opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.2)" });
+      bsToast.show();
+
+      // when toast hides (Bootstrap event), animate out and remove
+      toastEl.addEventListener('hidden.bs.toast', () => {
+        // animate out then remove
+        gsap.to(toastEl, { x: 40, opacity: 0, scale: 0.96, duration: 0.32, ease: "power2.in", onComplete: () => {
+          if (toastEl && toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
+        }});
+      });
+
+      // clicking close should hide (Bootstrap does this automatically), but ensure remove if never hidden
+      return toastEl;
+    }
+
+    // ---------- backend helpers ----------
+    async function sendCommand(commandRaw){
+      const command = (commandRaw || '').trim();
+      if (!command) return;
+      try {
+        const res = await fetch('/process', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({command})});
+        const data = await res.json();
+        if (data.list) renderList(data.list);
+        if (data.suggestions) renderSuggestions(data.suggestions);
+        if (data.message) showToast(data.message, 'success');
+      } catch(e){
+        console.error(e);
+        showToast('Network error', 'danger');
+      }
+    }
+
+    async function loadList(){
+      const r = await fetch('/list');
+      const d = await r.json();
+      renderList(d.list);
+    }
+
+    // ---------- render + animations ----------
+    function renderList(list){
+      shoppingListDiv.innerHTML = '';
+      const groups = {};
+      list.forEach(i => {
+        const cat = (i.category || 'misc').toUpperCase();
+        groups[cat] = groups[cat] || [];
+        groups[cat].push(i);
+      });
+
+      const tl = gsap.timeline();
+      let idx = 0;
+      Object.keys(groups).forEach(cat => {
+        const head = document.createElement('div');
+        head.innerHTML = `<div style="font-size:0.82rem;color:var(--muted);margin-top:6px;margin-bottom:6px">${cat}</div>`;
+        shoppingListDiv.appendChild(head);
+        groups[cat].forEach(item => {
+          const row = document.createElement('div');
+          row.className = 'item-row';
+          row.innerHTML = `
+            <div style="display:flex;align-items:center">
+              <div class="quantity">${escapeHtml(item.quantity)}</div>
+              <div><strong>${escapeHtml(item.item)}</strong><div style="font-size:0.82rem;color:var(--muted)">${escapeHtml(item.category)}</div></div>
+            </div>
+            <div><button class="remove-btn" data-item="${escapeJs(item.item)}"><i class="fa fa-trash"></i></button></div>
+          `;
+          shoppingListDiv.appendChild(row);
+          tl.fromTo(row, { y: 18, opacity:0, scale:0.995 }, { y:0, opacity:1, scale:1, duration:0.56, ease: "back.out(1.2)" }, idx * 0.06);
+          idx++;
+        });
+      });
+
+      setTimeout(()=> {
+        document.querySelectorAll('.remove-btn').forEach(b => {
+          b.onclick = async () => {
+            const item = b.getAttribute('data-item');
+            const parentRow = b.closest('.item-row');
+            await gsap.to(parentRow, { scale:0.96, opacity:0, y:-6, duration:0.28, ease:"power2.in" });
+            await sendCommand('remove ' + item);
+            loadList();
+          };
+        });
+      }, 80);
+    }
+
+    function renderSuggestions(arr){
+      suggestionsDiv.innerHTML = '';
+      arr.slice(0,12).forEach((s, i) => {
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.textContent = s;
+        chip.style.transform = 'scale(0.75)';
+        chip.style.opacity = '0';
+        suggestionsDiv.appendChild(chip);
+        gsap.to(chip, { scale:1, opacity:1, duration:0.7, ease: "elastic.out(1, 0.55)", delay: i * 0.04 });
+        chip.onclick = async ()=> {
+          await gsap.fromTo(chip, { scale:1 }, { scale:0.95, duration:0.09, yoyo:true, repeat:1, ease:'power1.inOut' });
+          await sendCommand('add ' + s);
+          loadList();
+        };
+      });
+    }
+
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function escapeJs(s){ return String(s).replace(/'/g, "\\'"); }
+
+    clearBtn.addEventListener('click', async ()=> {
+      if (!confirm('Clear the shopping list?')) return;
+      await fetch('/clear', { method:'POST' });
+      loadList();
+      showToast('List cleared', 'info');
+    });
+
+    // initial load & suggestions
+    loadList();
+    (async ()=> {
+      const r = await fetch('/process', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({command:'suggest'})});
+      const d = await r.json();
+      if (d.suggestions) renderSuggestions(d.suggestions);
+    })();
+  </script>
+</body>
+</html>
