@@ -1,0 +1,219 @@
+/* static/style.css — updated: mobile-first, light/dark theme, voice-only UI */
+
+/* ---------- THEME VARIABLES ---------- */
+:root{
+  --bg:#f4f7fb;
+  --card:#ffffff;
+  --muted:#6b7280;
+  --accent:#6366f1;
+  --accent-2:#06b6d4;
+  --text:#0f172a;
+  --glass: rgba(99,102,241,0.08);
+  --ui-shadow: 0 12px 36px rgba(15,23,42,0.06);
+  --radius:14px;
+  --focus: rgba(99,102,241,0.18);
+  font-family: Inter, system-ui, -apple-system, "Segoe UI", Roboto, "Helvetica Neue", Arial;
+  --btn-min-height: 40px;
+}
+
+/* darker theme */
+[data-theme="dark"]{
+  --bg:#05060a;
+  --card:#071025;
+  --muted:#9aa6b2;
+  --accent:#7c5cff;
+  --accent-2:#06b6d4;
+  --text:#e6eef8;
+  --glass: rgba(255,255,255,0.04);
+  --ui-shadow: 0 12px 36px rgba(0,0,0,0.6);
+}
+
+/* ---------- BASE ---------- */
+*{box-sizing:border-box}
+html,body{height:100%}
+body{
+  margin:0;
+  padding:18px;
+  background:var(--bg);
+  color:var(--text);
+  -webkit-font-smoothing:antialiased;
+  -moz-osx-font-smoothing:grayscale;
+  font-size:15px;
+  line-height:1.35;
+}
+
+/* container */
+.wrap{max-width:1050px;margin:0 auto}
+
+/* focus-visible for keyboard users */
+:focus{outline:none}
+:focus-visible{outline:3px solid var(--focus); outline-offset:4px; border-radius:8px}
+
+/* hero */
+.hero{
+  display:flex;
+  justify-content:space-between;
+  align-items:center;
+  padding:18px;
+  border-radius:18px;
+  background:linear-gradient(90deg, rgba(99,102,241,0.08), rgba(6,182,212,0.04));
+  box-shadow:var(--ui-shadow);
+  margin-bottom:18px;
+}
+.hero-left{display:flex;gap:14px;align-items:center}
+.logo{width:68px;height:68px;border-radius:14px;background:linear-gradient(180deg,var(--accent),#4f46e5);display:grid;place-items:center;color:#fff;font-weight:800;font-size:20px}
+.hero h1{margin:0;font-size:22px}
+.lead{margin:0;color:var(--muted);font-size:13px;margin-top:4px}
+
+/* hero controls */
+.hero-controls{display:flex;gap:10px;align-items:center}
+.theme-switch{
+  display:inline-flex;
+  align-items:center;
+  gap:10px;
+  padding:8px;
+  border-radius:12px;
+  cursor:pointer;
+  border:1px solid var(--glass);
+  background:linear-gradient(180deg,var(--card),#fbfdff);
+  min-height:var(--btn-min-height);
+}
+.theme-switch[aria-checked="true"]{ box-shadow: 0 6px 18px rgba(99,102,241,0.08); border-color: rgba(99,102,241,0.18); }
+.switch{width:46px;height:26px;border-radius:999px;background:#e9eefc;position:relative;border:1px solid var(--glass)}
+.knob{position:absolute;top:3px;left:3px;width:20px;height:20px;border-radius:50%;background:white;transition:transform .18s ease, background .18s}
+.theme-switch[aria-checked="true"] .knob{ transform: translateX(20px); background: linear-gradient(180deg,var(--accent),#4f46e5)}
+.theme-label{display:flex;flex-direction:column;font-size:12px}
+
+/* voice toggle */
+.voice-toggle{
+  padding:8px 12px;border-radius:12px;border:1px solid rgba(15,23,42,0.04);
+  background:transparent;cursor:pointer; min-height:var(--btn-min-height);
+}
+.voice-toggle[aria-pressed="true"]{
+  background: linear-gradient(90deg,var(--accent),#4f46e5);
+  color: #fff;
+  border-color: rgba(99,102,241,0.18);
+  box-shadow: 0 8px 22px rgba(99,102,241,0.08);
+}
+
+/* main grid */
+.grid{display:grid;grid-template-columns:1fr;gap:16px}
+@media(min-width:900px){
+  .grid{grid-template-columns:380px 1fr}
+}
+
+/* panels */
+.panel, .card-list{
+  background:var(--card);
+  border-radius:12px;
+  padding:16px;
+  box-shadow:var(--ui-shadow);
+  border:1px solid rgba(0,0,0,0.03);
+}
+.panel h2{margin:0 0 12px 0}
+.card-list h3{margin:0 0 6px 0}
+
+/* mic button */
+.mic-btn{
+  display:flex;
+  gap:12px;
+  align-items:center;
+  width:100%;
+  padding:12px;
+  border-radius:12px;
+  border:1px solid var(--glass);
+  cursor:pointer;
+  background:linear-gradient(180deg,#fff,#fbfdff);
+  min-height:52px;
+}
+.mic-btn:active{ transform: translateY(1px); }
+.mic-left{display:grid;place-items:center}
+.mic-meta strong{display:block}
+.status{font-size:13px;color:var(--muted)}
+
+/* input + add */
+.input-group{display:flex;gap:10px;margin-top:14px}
+.input{flex:1;padding:12px;border-radius:12px;border:1px solid rgba(235,240,255,0.8);font-size:15px}
+.add-btn{
+  padding:12px 16px;border-radius:12px;border:none;
+  background:linear-gradient(90deg,var(--accent),#4f46e5);
+  color:white;cursor:pointer; min-height:var(--btn-min-height);
+}
+.add-btn:active{ transform: translateY(1px); }
+
+/* list */
+.list-head{display:flex;justify-content:space-between;align-items:center;margin-bottom:10px}
+.count{font-size:13px;color:var(--muted)}
+.count-number{font-weight:700;margin-right:6px}
+.items{display:flex;flex-direction:column;gap:12px}
+.item{
+  display:flex;justify-content:space-between;align-items:center;padding:12px;border-radius:10px;
+  border:1px solid var(--glass);background:linear-gradient(90deg,#fff,#fbfdff);
+}
+.thumb{
+  width:44px;height:44px;border-radius:10px;display:grid;place-items:center;
+  background:linear-gradient(180deg,#f7f8ff,#eef2ff);color:var(--accent);font-weight:700
+}
+.item-meta{display:flex;flex-direction:column;min-width:0}
+.item-title{font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.item-sub{font-size:13px;color:var(--muted)}
+.item-actions button{margin-left:8px; min-width:44px; min-height:36px; padding:6px 8px}
+
+/* buttons */
+.btn-ghost{padding:8px 10px;border-radius:8px;border:1px solid rgba(15,23,42,0.06);background:transparent;cursor:pointer; min-height:var(--btn-min-height)}
+.btn-primary{padding:8px 10px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--accent-2),#06b6d4);color:white;cursor:pointer; min-height:var(--btn-min-height)}
+
+/* empty */
+.empty{padding:20px;border-radius:10px;border:2px dashed rgba(99,102,241,0.08);text-align:center;color:var(--muted);margin-top:12px}
+
+/* recommendations */
+.rec-block{margin-top:12px}
+.rec-title{font-weight:700;margin-bottom:8px}
+.rec-wrap{display:flex;gap:8px;flex-wrap:wrap}
+
+/* substitute toast — use opacity/transform for transitions; avoid display:none for hiding */
+.sub-toast{
+  position:fixed;right:18px;bottom:18px;background:var(--card);border-radius:10px;padding:14px;
+  box-shadow:0 12px 36px rgba(0,0,0,0.18);z-index:1200;width:320px;
+  transition: transform .24s ease, opacity .24s ease;
+  opacity:0; transform: translateY(8px); pointer-events:none;
+  border:1px solid rgba(0,0,0,0.04);
+}
+.sub-toast.show{opacity:1;transform:translateY(0); pointer-events:auto}
+.sub-toast.hidden{opacity:0; transform:translateY(8px); pointer-events:none}
+.sub-list{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px;margin-bottom:8px}
+
+/* listening overlay — controlled by adding/removing .show */
+.listening-overlay{
+  position:fixed;inset:0;background:rgba(0,0,0,0.9);display:flex;align-items:center;justify-content:center;z-index:1400;color:#fff;
+  opacity:0;pointer-events:none;transition:opacity .18s ease;
+}
+.listening-overlay.show{opacity:1;pointer-events:auto}
+.overlay-inner{text-align:center;padding:24px}
+.mic-emoji{font-size:64px;margin-bottom:10px}
+.listen-msg{font-size:20px;margin-top:8px}
+.overlay-hint{opacity:0.8;margin-top:10px}
+
+/* Mobile specific (touch targets, spacing) */
+@media (max-width:600px){
+  body{padding:12px}
+  .hero{flex-direction:column;align-items:flex-start;gap:12px}
+  .hero-controls{width:100%;display:flex;justify-content:space-between}
+  .mic-btn{padding:16px;border-radius:16px;font-size:18px; min-height:60px}
+  .input{padding:14px;font-size:16px}
+  .add-btn{padding:14px 18px;font-size:16px}
+  .btn-primary{padding:10px 12px}
+  .item{flex-direction:column;align-items:flex-start}
+  .item-actions{margin-top:10px; width:100%; display:flex; gap:8px; justify-content:flex-end}
+  .sub-toast{right:12px;left:12px;width:auto}
+  .rec-wrap{gap:6px}
+}
+
+/* small helpers */
+.rec-btn{padding:8px 10px;border-radius:8px;border:none;background:linear-gradient(90deg,var(--accent),#4f46e5);color:white;cursor:pointer}
+.rec-btn.btn-ghost{background:transparent;color:var(--muted);border:1px solid rgba(99,102,241,0.06)}
+
+/* ensure good contrast for dark theme where needed */
+[data-theme="dark"] .hero{ background: linear-gradient(90deg, rgba(124,92,255,0.08), rgba(6,182,212,0.03)); }
+[data-theme="dark"] .logo{ box-shadow: 0 6px 18px rgba(124,92,255,0.08); }
+[data-theme="dark"] .item{ background: linear-gradient(90deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.02); }
