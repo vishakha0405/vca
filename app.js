@@ -2,6 +2,8 @@
 (function(){
   'use strict';
 
+  const BASE_API = '/api'; // <- Vercel-friendly base API path
+
   // DOM refs
   const micBtn = document.getElementById('micBtn');
   const micLabel = document.getElementById('micLabel');
@@ -18,6 +20,9 @@
   const STORAGE_KEY = 'voice_shopping_items_v1';
   const HISTORY_KEY = 'voice_shopping_history_v1';
   const THEME_KEY = 'voice_theme_v1';
+
+  // small helper for status text (defined early for use in feature-detection)
+  function setStatus(t){ if(statusEl) statusEl.textContent = 'Status: ' + t; }
 
   // --- language selector (inject into hero) ---
   function addLangSelector(){
@@ -54,8 +59,20 @@
   }
 
   // ---------------- categorization & substitutes ----------------
-  const CATEGORY_KEYWORDS = { Dairy:['milk','cheese','yogurt','butter','paneer'], Produce:['apple','banana','orange','tomato','potato','onion','mango'], Bakery:['bread','bagel','bun'], Drinks:['water','juice','coffee','tea'], Snacks:['chips','biscuit','chocolate'], Household:['detergent','soap','shampoo','toilet paper'], Spices:['salt','pepper','turmeric'] };
-  function categorizeItem(name){ const low=(name||'').toLowerCase(); for(const k in CATEGORY_KEYWORDS) for(const w of CATEGORY_KEYWORDS[k]) if(low.includes(w)) return k; return 'Other'; }
+  const CATEGORY_KEYWORDS = {
+    Dairy:['milk','cheese','yogurt','butter','paneer'],
+    Produce:['apple','banana','orange','tomato','potato','onion','mango'],
+    Bakery:['bread','bagel','bun'],
+    Drinks:['water','juice','coffee','tea'],
+    Snacks:['chips','biscuit','chocolate'],
+    Household:['detergent','soap','shampoo','toilet paper'],
+    Spices:['salt','pepper','turmeric']
+  };
+  function categorizeItem(name){
+    const low=(name||'').toLowerCase();
+    for(const k in CATEGORY_KEYWORDS) for(const w of CATEGORY_KEYWORDS[k]) if(low.includes(w)) return k;
+    return 'Other';
+  }
   const SUBSTITUTES = { milk:['almond milk','soy milk','oat milk'], butter:['margarine'], sugar:['honey'] };
   function getSubstitutes(name){ const low=(name||'').toLowerCase(); for(const k of Object.keys(SUBSTITUTES)) if(low.includes(k)) return SUBSTITUTES[k]; return []; }
 
@@ -73,7 +90,8 @@
     });
     Object.keys(grouped).sort().forEach(cat=>{
       const catDiv = document.createElement('div'); catDiv.className='category-section';
-      const header = document.createElement('div'); header.className='category-header'; header.innerHTML = `<strong>${cat}</strong><span class="cat-count">(${grouped[cat].length})</span>`;
+      const header = document.createElement('div'); header.className='category-header';
+      header.innerHTML = `<strong>${cat}</strong><span class="cat-count">(${grouped[cat].length})</span>`;
       catDiv.appendChild(header);
       const list = document.createElement('div'); list.className='category-list';
       grouped[cat].forEach(it=>{
@@ -140,9 +158,6 @@
   function detectPriceFilterCommand(phrase){
     if(!phrase) return null;
     const p = phrase.toLowerCase().trim();
-    if(!/^(find|show|search|look for|get|show me)/.test(p) && !/under|below|between|above|over|less than|more than/.test(p)) {
-      // allow short forms like "toothpaste under 500"
-    }
     let m = p.match(/(?:find|show|search|get|look for|look up|show me)?\s*(.+?)\s+(?:under|below|less than)\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)/);
     if(m) return { q: m[1].trim(), min_price: null, max_price: parseFloat(m[2]), brand: null };
     m = p.match(/(?:find|show|search)?\s*(.+?)\s+between\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)\s+(?:and|-)\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)/);
@@ -169,10 +184,12 @@
     if(pf.brand) params.set('brand', pf.brand);
     params.set('currency','INR'); params.set('limit','12');
     try {
-      const res = await fetch('/api/products/search?' + params.toString());
+      const res = await fetch(`${BASE_API}/products/search?` + params.toString());
       if(!res.ok) throw new Error('search failed ' + res.status);
       const data = await res.json();
-      renderProductResultsINR(data.items || []);
+      // accept array or object with items
+      const items = Array.isArray(data) ? data : (data.items || data.results || []);
+      renderProductResultsINR(items);
     } catch(err){
       console.error(err);
       if(recommendationsBox) recommendationsBox.innerHTML = '<div style="color:var(--muted)">Product search failed.</div>';
@@ -192,7 +209,7 @@
       const meta = document.createElement('div'); meta.style.color='var(--muted)'; meta.style.fontSize='13px'; meta.textContent = (p.brand? p.brand + ' • ' : '') + (p.category || '');
       left.appendChild(name); left.appendChild(meta);
       const right = document.createElement('div'); right.style.display='flex'; right.style.flexDirection='column'; right.style.alignItems='flex-end'; right.style.gap='8px';
-      const price = document.createElement('div'); price.textContent = p.price || ('₹' + (p.price_inr||0).toFixed(2)); price.style.fontWeight='700';
+      const price = document.createElement('div'); price.textContent = p.price || (p.price_inr !== undefined ? ('₹' + Number(p.price_inr).toFixed(2)) : '—'); price.style.fontWeight='700';
       const add = document.createElement('button'); add.className='btn-primary'; add.textContent='Add'; add.onclick = ()=> { addItem(p.name,1); };
       right.appendChild(price); right.appendChild(add);
       card.appendChild(left); card.appendChild(right); list.appendChild(card);
@@ -276,10 +293,16 @@
     micBtn.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); micBtn.click(); } });
   }
 
-  // language selector change
+  // language selector change - restart recognition to apply new lang if listening
   if(langSelect){
     langSelect.addEventListener('change', ()=> {
-      if(recognition) recognition.lang = langSelect.value;
+      if(recognition){
+        recognition.lang = langSelect.value;
+        if(listening){
+          try { recognition.stop(); } catch(e){ /* ignore */ }
+          setTimeout(()=> { try { recognition.start(); } catch(e){ /* ignore */ } }, 250);
+        }
+      }
     });
   }
 
@@ -290,7 +313,7 @@
   // ---------------- send transcript to server NLU ----------------
   async function sendToNLU(finalTranscript){
     try {
-      const res = await fetch('/api/parse-command', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phrase: finalTranscript, lang: recognition ? recognition.lang : (navigator.language || 'en') }) });
+      const res = await fetch(`${BASE_API}/parse-command`, { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({ phrase: finalTranscript, lang: recognition ? recognition.lang : (navigator.language || 'en') }) });
       if(!res.ok) throw new Error('NLU failed ' + res.status);
       const intent = await res.json();
       applyIntent(intent, finalTranscript);
@@ -300,10 +323,9 @@
     }
   }
 
-  // ---------------- apply Gemini intent to actions ----------------
+  // ---------------- apply Gemini/Server intent to actions ----------------
   function applyIntent(intent, rawPhrase){
     if(!intent || intent.intent === 'unknown'){
-      // fallback to local parsing
       parseAndApply(rawPhrase || '');
       return;
     }
@@ -316,7 +338,6 @@
     }
     if(act === 'remove' && name){
       if(typeof qty === 'number'){
-        // reduce quantity
         const items = loadItems(); const idx = items.findIndex(i=>i.name.toLowerCase() === name.toLowerCase());
         if(idx>=0){
           const cur = parseInt(items[idx].qty||0,10)||0; const after = Math.max(0, cur - qty);
@@ -329,7 +350,6 @@
       return;
     }
     if(act === 'replace' && name && intent.substitute && intent.substitute.alternatives && intent.substitute.alternatives.length){
-      // replace using first alternative
       parseAndApply(`replace ${name} with ${intent.substitute.alternatives[0]}`); return;
     }
     if(act === 'set_qty' && name && typeof qty === 'number'){
@@ -340,7 +360,6 @@
       localStorage.removeItem(STORAGE_KEY); render(); return;
     }
     if(act === 'search' || intent.price_filter){
-      // call search with price_filter/brand if present
       const pf = intent.price_filter || null;
       const phrase = rawPhrase || (name ? `find ${name}` : '');
       if(pf){
@@ -352,7 +371,6 @@
       return;
     }
 
-    // substitutes if suggested
     if(intent.substitute && intent.substitute.suggest && Array.isArray(intent.substitute.alternatives)){
       showSubstituteToast(name || '', intent.substitute.alternatives);
     }
@@ -387,7 +405,6 @@
   if(themeToggle){ themeToggle.addEventListener('click', ()=>{ const now = document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'; applyTheme(now); localStorage.setItem(THEME_KEY, now); themeToggle.setAttribute('aria-checked', now==='dark'); }); themeToggle.setAttribute('aria-checked', document.documentElement.getAttribute('data-theme') === 'dark' ? 'true' : 'false'); }
 
   // ---------------- small helpers ----------------
-  function setStatus(t){ if(statusEl) statusEl.textContent = 'Status: ' + t; }
   function init(){ render(); setStatus('idle'); }
 
   // expose small debug helpers
