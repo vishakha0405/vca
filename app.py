@@ -1,189 +1,162 @@
 # app.py
-from flask import Flask, render_template, request, jsonify, g
+from flask import Flask, render_template, request, jsonify
+from flask_cors import CORS
+import math
 import re
-from collections import defaultdict
-import sqlite3
-import os
-from datetime import datetime
 
-DB = "shopping.db"
-app = Flask(__name__)
+app = Flask(__name__, static_folder="static", template_folder="templates")
+CORS(app)  # allow cross-origin requests (useful in dev)
 
-def get_db():
-    db = getattr(g, "_db", None)
-    if db is None:
-        db = g._db = sqlite3.connect(DB)
-        db.row_factory = sqlite3.Row
-    return db
+# -------------------------
+# Mock product catalog
+# -------------------------
+# price_inr is an integer/float in Indian Rupees
+PRODUCTS = [
+    {"id": 1, "name": "Amul Gold Milk 1L", "brand": "Amul", "category": "Dairy", "price_inr": 65.0},
+    {"id": 2, "name": "Britannia White Bread 400g", "brand": "Britannia", "category": "Bakery", "price_inr": 35.0},
+    {"id": 3, "name": "Parle G Biscuits 300g", "brand": "Parle", "category": "Snacks", "price_inr": 25.0},
+    {"id": 4, "name": "Tata Salt Iodized 1kg", "brand": "Tata", "category": "Spices", "price_inr": 28.0},
+    {"id": 5, "name": "Colgate Toothpaste 100g", "brand": "Colgate", "category": "Household", "price_inr": 90.0},
+    {"id": 6, "name": "Dove Shampoo 340ml", "brand": "Dove", "category": "Household", "price_inr": 250.0},
+    {"id": 7, "name": "Almond Milk (Alpro) 1L", "brand": "Alpro", "category": "Dairy", "price_inr": 240.0},
+    {"id": 8, "name": "Apple - Red Delicious (1kg)", "brand": "FreshFarm", "category": "Produce", "price_inr": 180.0},
+    {"id": 9, "name": "Minute Maid Orange Juice 1L", "brand": "Minute Maid", "category": "Drinks", "price_inr": 145.0},
+    {"id": 10, "name": "Organic Bananas (1 dozen)", "brand": "GreenLeaf", "category": "Produce", "price_inr": 60.0},
+    {"id": 11, "name": "Maggi Masala Noodles 2x70g", "brand": "Maggi", "category": "Snacks", "price_inr": 20.0},
+    {"id": 12, "name": "Saffola Gold Oil 1L", "brand": "Saffola", "category": "Household", "price_inr": 220.0},
+    {"id": 13, "name": "Bread - Whole Wheat 400g", "brand": "LocalBakery", "category": "Bakery", "price_inr": 40.0},
+    {"id": 14, "name": "Paneer 200g", "brand": "LocalDairy", "category": "Dairy", "price_inr": 110.0},
+    {"id": 15, "name": "Oreo Chocolate Biscuits 150g", "brand": "Oreo", "category": "Snacks", "price_inr": 60.0},
+]
 
-def init_db():
-    if not os.path.exists(DB):
-        db = sqlite3.connect(DB)
-        c = db.cursor()
-        c.execute("""
-            CREATE TABLE items (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                item TEXT NOT NULL,
-                quantity INTEGER NOT NULL DEFAULT 1,
-                category TEXT,
-                created_at TEXT
-            )
-        """)
-        c.execute("""
-            CREATE TABLE history (
-                id INTEGER PRIMARY KEY AUTOINCREMENT,
-                item TEXT NOT NULL,
-                created_at TEXT
-            )
-        """)
-        db.commit()
-        db.close()
+# -------------------------
+# Helper search functions
+# -------------------------
+def normalize_text(s: str) -> str:
+    return (s or "").strip().lower()
 
-@app.teardown_appcontext
-def close_connection(exception):
-    db = getattr(g, "_db", None)
-    if db is not None:
-        db.close()
+def score_match(product, q):
+    """
+    Simple scoring:
+    - +100 if q appears in name start
+    - +50 if substring in name
+    - +30 if in brand
+    - +20 if in category
+    - small fuzzy by splitting words
+    """
+    if not q:
+        return 0
+    q = normalize_text(q)
+    name = normalize_text(product["name"])
+    brand = normalize_text(product.get("brand", ""))
+    category = normalize_text(product.get("category", ""))
 
-CATEGORY_MAP = {
-    "milk": "dairy", "cheese": "dairy", "yogurt": "dairy",
-    "apple": "produce", "apples": "produce", "banana": "produce",
-    "bread": "bakery", "eggs": "dairy", "water": "beverages",
-    "toothpaste": "personal care", "almond milk": "dairy-alternative", "butter":"dairy"
-}
-SUBSTITUTES = {"milk": ["almond milk", "soya milk"], "butter": ["margarine"]}
+    score = 0
+    if name.startswith(q): score += 100
+    if q in name and not name.startswith(q): score += 50
+    if q in brand: score += 30
+    if q in category: score += 20
 
-def categorize(item):
-    key = item.lower()
-    for k, v in CATEGORY_MAP.items():
-        if k in key:
-            return v
-    return "misc"
+    # word-level partial matches
+    q_words = re.split(r"\s+", q)
+    for w in q_words:
+        if w and w in name: score += 6
+        if w and w in brand: score += 3
+    return score
 
-def parse_command_text_rulebased(text):
-    t = text.lower().strip()
-    result = {"intent": "unknown", "item": None, "quantity": 1}
-    if any(word in t for word in ["suggest", "recommend", "what should i buy"]):
-        result["intent"] = "suggest"
-        return result
-    if t.startswith("find") or t.startswith("search") or "find me" in t or "search for" in t:
-        result["intent"] = "search"
-        m = re.search(r'(find|search)( me| for)? (.+)', t)
-        if m:
-            result["item"] = m.group(3).strip()
-        return result
-    if any(word in t for word in ["add", "buy", "i need", "i want", "get", "please add"]):
-        result["intent"] = "add"
-    elif any(word in t for word in ["remove", "delete", "drop", "take off"]):
-        result["intent"] = "remove"
-    q = re.search(r'(\d+)', t)
-    if q:
+def filter_products(q=None, min_price=None, max_price=None, brand=None, limit=20):
+    """
+    Return list of matching products sorted by score & price.
+    """
+    # Normalize filters
+    q_norm = normalize_text(q) if q else ""
+    brand_norm = normalize_text(brand) if brand else ""
+
+    # Filter by brand and price first
+    candidates = []
+    for p in PRODUCTS:
+        price = p.get("price_inr")
+        if min_price is not None and price is not None and price < min_price: 
+            continue
+        if max_price is not None and price is not None and price > max_price:
+            continue
+        if brand_norm and brand_norm not in normalize_text(p.get("brand","")):
+            # brand filter applied and doesn't match
+            continue
+        # If q present, compute score, else keep baseline score
+        s = score_match(p, q_norm) if q_norm else 1
+        candidates.append((s, p))
+    # Sort by score descending, then by lower price
+    candidates.sort(key=lambda sp: (-sp[0], sp[1].get("price_inr", math.inf)))
+    return [p for _, p in candidates][:limit]
+
+# -------------------------
+# Routes
+# -------------------------
+@app.route("/")
+def home():
+    return render_template("index.html")
+
+@app.route("/api/products/search")
+def api_products_search():
+    """
+    Query params:
+      - q (string) search term
+      - min_price (number) in INR
+      - max_price (number) in INR
+      - brand (string)
+      - limit (int)
+      - currency (optional) - ignored by mock (we return price_inr)
+    Response: JSON array or { items: [...] }
+    """
+    q = request.args.get("q", default="", type=str)
+    brand = request.args.get("brand", default="", type=str)
+    limit = request.args.get("limit", default=12, type=int)
+    currency = request.args.get("currency", default="INR", type=str)
+
+    # parse prices (accept decimals)
+    def parse_price(v):
+        if v is None or v == '':
+            return None
         try:
-            result["quantity"] = int(q.group(1))
+            return float(v)
         except:
-            pass
-    item = t
-    for word in ["add", "buy", "i need", "i want", "get", "please", "remove", "delete", "drop", "from my list", "from my", "from"]:
-        item = item.replace(word, "")
-    item = re.sub(r'\b(of|some|a|an|please)\b', '', item).strip()
-    result["item"] = item if item else None
-    return result
+            # try remove currency symbols etc.
+            try:
+                return float(re.sub(r"[^\d.]", "", v))
+            except:
+                return None
 
-def add_item_db(item, quantity=1):
-    db = get_db()
-    c = db.cursor()
-    cat = categorize(item)
-    c.execute("INSERT INTO items (item, quantity, category, created_at) VALUES (?, ?, ?, ?)",
-              (item, quantity, cat, datetime.now().isoformat()))
-    c.execute("INSERT INTO history (item, created_at) VALUES (?, ?)", (item, datetime.now().isoformat()))
-    db.commit()
+    min_price = parse_price(request.args.get("min_price", None))
+    max_price = parse_price(request.args.get("max_price", None))
 
-def remove_item_db(item):
-    db = get_db()
-    c = db.cursor()
-    c.execute("SELECT id FROM items WHERE LOWER(item)=? ORDER BY id LIMIT 1", (item.lower(),))
-    row = c.fetchone()
-    if row:
-        c.execute("DELETE FROM items WHERE id=?", (row["id"],))
-        db.commit()
-        return True
-    return False
+    results = filter_products(q=q, min_price=min_price, max_price=max_price, brand=brand, limit=limit)
 
-def list_items_db():
-    db = get_db()
-    c = db.cursor()
-    c.execute("SELECT item, quantity, category FROM items ORDER BY id")
-    rows = c.fetchall()
-    return [{"item": r["item"], "quantity": r["quantity"], "category": r["category"]} for r in rows]
+    # Optionally enrich results: add price_inr and a simple availability flag & suggestions
+    enriched = []
+    for p in results:
+        enriched.append({
+            "id": p["id"],
+            "name": p["name"],
+            "brand": p.get("brand"),
+            "category": p.get("category"),
+            "price_inr": p.get("price_inr"),
+            "available": True,
+            # simple substitute example: use same substitutes mapping as frontend
+            "substitutes": ["almond milk", "soy milk"] if "milk" in p["name"].lower() else []
+        })
 
-def history_freq_top(n=5):
-    db = get_db()
-    c = db.cursor()
-    c.execute("SELECT item, COUNT(*) as cnt FROM history GROUP BY item ORDER BY cnt DESC LIMIT ?", (n,))
-    return [r["item"] for r in c.fetchall()]
+    # Return a consistent object with items key
+    return jsonify({"items": enriched, "query": {"q": q, "min_price": min_price, "max_price": max_price, "brand": brand, "currency": currency}}), 200
 
-@app.route('/')
-def index():
-    return render_template('index.html')
+# small health endpoint
+@app.route("/api/ping")
+def ping():
+    return jsonify({"ok": True, "msg": "pong"})
 
-@app.route('/process', methods=['POST'])
-def process():
-    data = request.get_json() or {}
-    text = (data.get('command') or "").strip()
-    if not text:
-        return jsonify({"status":"error", "message":"Empty command"})
-    parsed = parse_command_text_rulebased(text)
-    intent = parsed.get("intent")
-    item = parsed.get("item")
-    quantity = parsed.get("quantity", 1)
-
-    if intent == "add" and item:
-        add_item_db(item, quantity)
-        return jsonify({"status":"ok", "message": f"Added {quantity} × {item}", "list": list_items_db()})
-
-    if intent == "remove" and item:
-        removed = remove_item_db(item)
-        if removed:
-            return jsonify({"status":"ok", "message": f"Removed {item}", "list": list_items_db()})
-        else:
-            return jsonify({"status":"not_found", "message": f"{item} not in list", "list": list_items_db()})
-
-    if intent == "search" and item:
-        products = ["organic apples", "apple juice 1L", "whole wheat bread", "almond milk", "toothpaste mint"]
-        results = [p for p in products if item.lower() in p.lower()]
-        return jsonify({"status":"ok", "results": results})
-
-    if intent == "suggest":
-        suggestions = []
-        suggestions += history_freq_top(3)
-        staples = ["bread", "milk", "eggs"]
-        for st in staples:
-            if st not in suggestions:
-                suggestions.append(st)
-        for e in list_items_db():
-            key = e["item"].lower()
-            if key in SUBSTITUTES:
-                suggestions += SUBSTITUTES[key]
-        seen = set(); uniq=[]
-        for it in suggestions:
-            if it and it not in seen:
-                seen.add(it); uniq.append(it)
-        return jsonify({"status":"ok", "suggestions": uniq[:8]})
-
-    return jsonify({"status":"error", "message":"Could not parse command", "parsed": parsed})
-
-@app.route('/list', methods=['GET'])
-def get_list():
-    return jsonify({"list": list_items_db()})
-
-@app.route('/clear', methods=['POST'])
-def clear_list():
-    db = get_db()
-    c = db.cursor()
-    c.execute("DELETE FROM items")
-    db.commit()
-    return jsonify({"status":"ok", "message":"List cleared", "list": list_items_db()})
-
-if __name__ == '__main__':
-    init_db()
-    app.run(debug=True)
+# -------------------------
+# Run server (dev)
+# -------------------------
+if __name__ == "__main__":
+    # For local testing use: python app.py
+    app.run(host="127.0.0.1", port=5000, debug=True)

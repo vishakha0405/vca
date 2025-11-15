@@ -1,1 +1,5 @@
-Flask==2.2.5
+Flask>=2.0
+python-dotenv
+# Try installing google-genai first; if unavailable use google-generativeai
+google-genai
+# google-generativeai

@@ -1,383 +1,553 @@
+<!-- templates/index.html (UPDATED) -->
 <!doctype html>
 <html lang="en">
 <head>
   <meta charset="utf-8" />
-  <meta name="viewport" content="width=device-width,initial-scale=1" />
-  <title>Voice Command Shopping Assistant — GSAP + Toasts</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1">
+  <title>Voice Shopping — Updated</title>
 
-  <!-- Bootstrap (layout + toasts) -->
-  <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/css/bootstrap.min.css" rel="stylesheet">
-  <!-- Font Awesome -->
-  <link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.5.0/css/all.min.css">
+  <!-- fonts + external css -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;600;700;800&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="{{ url_for('static', filename='style.css') }}">
 
   <style>
-    :root{
-      --bg:#f6f8fb; --card:#fff; --muted:#6c757d; --text:#0f1724;
-      --accent:#0b7bff; --accent-2:#7c3aed; --chip-bg:#fff; --shadow:0 8px 30px rgba(11,123,255,0.06);
-    }
-    .dark { --bg:#071020; --card:#0f1724; --muted:#9aa6b2; --text:#e6eef8; --accent:#2da9ff; --accent-2:#a78bfa; --chip-bg:rgba(255,255,255,0.03); --shadow:0 8px 30px rgba(2,6,23,0.6); }
-
-    body{ background: linear-gradient(180deg,var(--bg), #eef4ff 120%); color:var(--text); font-family:Inter,system-ui,Segoe UI,Roboto,Arial; transition: background .25s, color .25s; }
-    .app{ max-width:1100px; margin:30px auto; padding:12px; }
-
-    .hero{ background: linear-gradient(90deg, rgba(11,123,255,0.06), rgba(124,58,237,0.03)); border-radius:12px; padding:16px; box-shadow:var(--shadow); display:flex; justify-content:space-between; gap:12px; align-items:center; }
-    .hero h2{ margin:0; }
-
-    .mic { display:inline-flex; gap:10px; align-items:center; padding:10px 16px; border-radius:12px; color:#fff; background:linear-gradient(90deg,var(--accent),var(--accent-2)); cursor:pointer; box-shadow:0 10px 30px rgba(11,123,255,0.12); transform-origin:center; }
-    .mic i { font-size:16px; }
-    .mic .label { font-weight:700; letter-spacing:0.01em; }
-    .mic.listening { background: linear-gradient(90deg,#ff6b6b,#ff3d3d); }
-
-    .card-panel{ background:var(--card); border-radius:12px; padding:14px; box-shadow:var(--shadow); }
-
-    .item-row{ display:flex; justify-content:space-between; align-items:center; padding:8px 6px; border-radius:8px; margin-bottom:8px; background:transparent; }
-    .quantity{ background:var(--chip-bg); padding:6px 10px; border-radius:8px; font-weight:700; color:var(--accent); border:1px solid rgba(0,0,0,0.04); margin-right:10px; }
-    .remove-btn{ background:transparent; border:0; color:var(--muted); cursor:pointer; padding:6px 8px; border-radius:8px; }
-    .remove-btn:hover{ color:var(--accent); transform:translateY(-3px); }
-
-    .chip{ display:inline-block; padding:8px 12px; border-radius:999px; margin:6px 6px 6px 0; cursor:pointer; background:var(--chip-bg); border:1px solid rgba(0,0,0,0.04); box-shadow:0 4px 12px rgba(11,123,255,0.04); transform-origin:center; }
-
-    .muted{ color:var(--muted); }
-
-    /* Toast container override: place top-right */
-    .toast-wrapper {
-      position: fixed;
-      top: 20px;
-      right: 20px;
-      z-index: 2147483647;
-      display: flex;
-      flex-direction: column;
-      gap: 10px;
-      align-items: flex-end;
-      pointer-events: none;
-    }
-    .toast-wrapper .toast {
-      pointer-events: auto;
-      width: 320px;
-      border-radius: 10px;
-      overflow: hidden;
-    }
+    /* Small inline tweaks (keeps big CSS in static/style.css) */
+    /* Improved mic button visual (if you also applied the mic CSS patch described earlier) */
+    .mic-btn { min-height:56px; padding-left:14px; }
+    .mic-icon{ width:52px; height:52px; border-radius:12px; display:grid; place-items:center; position:relative; background: linear-gradient(180deg, rgba(255,255,255,0.95), rgba(255,255,255,0.9)); box-shadow: 0 8px 22px rgba(81,226,245,0.06); color: var(--accent); flex: 0 0 52px; transition: transform .18s ease, box-shadow .18s ease; }
+    .mic-icon svg{ width:28px; height:28px; display:block; color:var(--accent); }
+    .mic-ring{ position:absolute; width:64px; height:64px; border-radius:50%; left:50%; top:50%; transform: translate(-50%,-50%) scale(.62); pointer-events:none; opacity:0; box-shadow: 0 0 0 6px rgba(81,226,245,0.06); transition: opacity .18s ease, transform .22s cubic-bezier(.2,.9,.2,1); }
+    .mic-btn.listening .mic-ring{ opacity:1; animation: micPulse 1.6s infinite cubic-bezier(.2,.9,.2,1); transform: translate(-50%,-50%) scale(1); }
+    @keyframes micPulse{ 0%{transform:translate(-50%,-50%) scale(.7); opacity:.55} 40%{transform:translate(-50%,-50%) scale(1.05); opacity:.14} 100%{transform:translate(-50%,-50%) scale(1.4); opacity:0} }
   </style>
 </head>
 <body>
-  <div class="app">
+  <div class="wrap">
     <div class="hero">
-      <div>
-        <h2>Voice Command Shopping Assistant</h2>
-        <div class="muted">Say: "Add 2 milk", "Remove eggs", "Find apples", "Suggest"</div>
+      <div class="hero-left">
+        <div class="logo">VS</div>
+        <div>
+          <h1>Voice Shopping</h1>
+          <div class="lead">Voice powered smart shopping list</div>
+        </div>
       </div>
 
-      <div class="d-flex gap-3 align-items-center">
-        <div id="micBtn" class="mic" role="button" title="Click to toggle listening">
-          <i id="micIcon" class="fa fa-microphone"></i>
-          <span class="label" id="micLabel">Start</span>
-        </div>
+      <div class="hero-controls">
+        <button id="voiceOnlyToggle" class="voice-only-btn" title="Toggle Voice-Only Mode">Voice-Only Mode</button>
 
-        <div class="d-flex gap-2 align-items-center">
-          <label class="muted mb-0 me-1">Theme</label>
-          <select id="themeColor" class="form-select form-select-sm">
-            <option value="blue" selected>Blue</option>
-            <option value="purple">Purple</option>
-            <option value="green">Green</option>
-            <option value="red">Red</option>
-          </select>
-          <div class="form-check form-switch ms-2">
-            <input class="form-check-input" type="checkbox" id="darkToggle">
-            <label class="form-check-label muted" for="darkToggle">Dark</label>
-          </div>
+        <div id="themeToggle" class="theme-switch" role="switch" tabindex="0" aria-checked="false" aria-label="Toggle theme">
+          <div class="switch" aria-hidden="true"><div class="knob"></div></div>
+          <div style="display:flex;flex-direction:column;align-items:flex-start"><strong style="font-size:13px">Theme</strong><small style="color:var(--muted)">Light / Dark</small></div>
         </div>
       </div>
     </div>
 
-    <div style="height:16px"></div>
+    <section class="panel">
+      <h2>Voice Controls</h2>
 
-    <div class="row g-3">
-      <div class="col-lg-7">
-        <div class="card-panel">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 style="margin:0">Your Shopping List</h5>
-            <div class="muted">Auto-categorized</div>
-          </div>
+      <!-- Attractive mic button (SVG + ring) -->
+      <button class="mic-btn" id="micBtn" aria-pressed="false" aria-label="Toggle microphone">
+        <span class="mic-icon" aria-hidden="true">
+          <!-- mic svg -->
+          <svg viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <path d="M12 14a3 3 0 0 0 3-3V6a3 3 0 0 0-6 0v5a3 3 0 0 0 3 3z" fill="currentColor" opacity="0.95"/>
+            <path d="M19 11a1 1 0 1 0-2 0 5 5 0 0 1-10 0 1 1 0 1 0-2 0 5 5 0 0 0 4 4.9V19a1 1 0 1 0 2 0v-3.1A5 5 0 0 0 19 11z" fill="currentColor" opacity="0.12"/>
+          </svg>
+          <span class="mic-ring" aria-hidden="true"></span>
+        </span>
 
-          <div id="shopping-list"></div>
-
-          <div class="mt-3 text-end">
-            <button id="clearBtn" class="btn btn-outline-danger btn-sm">Clear</button>
-          </div>
+        <div style="display:flex;flex-direction:column;align-items:flex-start;margin-left:8px">
+          <strong id="micLabel" style="font-size:14px">Start Listening</strong>
+          <span class="status">Status: idle</span>
         </div>
+      </button>
+
+      <div class="input-group" style="margin-top:14px">
+        <input id="textInput" class="input" placeholder="Type item or use voice..." aria-label="Item input" />
+        <button id="addBtn" class="add-btn">Add</button>
       </div>
 
-      <div class="col-lg-5">
-        <div class="card-panel">
-          <div class="d-flex justify-content-between align-items-center mb-2">
-            <h5 style="margin:0">Suggestions</h5>
-            <div class="muted">Tap a chip to add</div>
-          </div>
-          <div id="suggestions" style="min-height:90px"></div>
-        </div>
+      <p style="margin-top:12px;color:var(--muted)">
+        Try voice commands: <em>add 2 apples</em>, <em>remove milk</em>, <em>find toothpaste under 100 rupees</em>, <em>replace milk with almond milk</em>, <em>clear list</em>.
+      </p>
+    </section>
+
+    <aside class="card-list" aria-labelledby="listHeading">
+      <div class="list-head">
+        <h3 id="listHeading">Your Shopping List</h3>
+        <div class="count">0 items</div>
       </div>
+
+      <div id="items" class="items" aria-live="polite"></div>
+
+      <div id="emptyState" class="empty" style="margin-top:12px">
+        <div style="font-weight:600;margin-bottom:6px">List empty</div>
+        <div style="color:var(--muted)">Say <strong>add milk</strong> or type an item above.</div>
+      </div>
+
+      <div id="recommendationsBox" style="margin-top:16px"></div>
+    </aside>
+  </div>
+
+  <div id="listeningOverlay" class="listening-overlay" aria-hidden="true">
+    <div class="overlay-inner">
+      <div style="font-size:60px; margin-bottom:20px;">🎤</div>
+      <div id="listenMsg" style="font-size:22px">Listening…</div>
+      <small style="margin-top:20px; opacity:0.8">Say “stop” to exit voice-only</small>
     </div>
   </div>
 
-  <!-- Toast wrapper -->
-  <div class="toast-wrapper" id="toastWrapper"></div>
-
-  <!-- GSAP (core) -->
-  <script src="https://cdnjs.cloudflare.com/ajax/libs/gsap/3.12.2/gsap.min.js"></script>
-  <!-- Bootstrap JS -->
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.3/dist/js/bootstrap.bundle.min.js"></script>
+  <div id="substituteToast" class="sub-toast hidden" aria-live="polite"></div>
 
   <script>
-    // ---------- elements ----------
+  (function(){
+    'use strict';
+
+    // DOM refs
     const micBtn = document.getElementById('micBtn');
-    const micIcon = document.getElementById('micIcon');
     const micLabel = document.getElementById('micLabel');
-    const shoppingListDiv = document.getElementById('shopping-list');
-    const suggestionsDiv = document.getElementById('suggestions');
-    const clearBtn = document.getElementById('clearBtn');
-    const themeColor = document.getElementById('themeColor');
-    const darkToggle = document.getElementById('darkToggle');
-    const toastWrapper = document.getElementById('toastWrapper');
+    const statusEl = document.querySelector('.status');
+    const textInput = document.getElementById('textInput');
+    const addBtn = document.getElementById('addBtn');
+    const itemsWrap = document.getElementById('items');
+    const emptyState = document.getElementById('emptyState');
+    const countEl = document.querySelector('.count');
+    const recommendationsBox = document.getElementById('recommendationsBox');
+    const themeToggle = document.getElementById('themeToggle');
+    const substituteToastEl = document.getElementById('substituteToast');
+    const voiceOnlyToggle = document.getElementById('voiceOnlyToggle');
+    const listeningOverlay = document.getElementById('listeningOverlay');
+    const listenMsg = document.getElementById('listenMsg');
 
-    // state
-    let recognition = null;
-    let listening = false;
-    let interimTranscript = '';
+    // storage keys
+    const STORAGE_KEY = 'voice_shopping_items_v1';
+    const HISTORY_KEY = 'voice_shopping_history_v1';
+    const THEME_KEY = 'voice_theme_v1';
 
-    // palettes
-    const palettes = {
-      blue: {accent:'#0b7bff', accent2:'#7c3aed'},
-      purple: {accent:'#7c3aed', accent2:'#ff7ab6'},
-      green: {accent:'#16a34a', accent2:'#34d399'},
-      red: {accent:'#ff4d4f', accent2:'#ff7b6b'}
-    };
-    function applyPalette(name){
-      const p = palettes[name] || palettes.blue;
-      document.documentElement.style.setProperty('--accent', p.accent);
-      document.documentElement.style.setProperty('--accent-2', p.accent2);
-      gsap.to(micBtn, { background: `linear-gradient(90deg, ${p.accent}, ${p.accent2})`, duration: 0.35 });
+    // helpers: storage parsing & history
+    function loadItems(){ try { return JSON.parse(localStorage.getItem(STORAGE_KEY) || '[]'); } catch(e){ return []; } }
+    function saveItems(arr){ localStorage.setItem(STORAGE_KEY, JSON.stringify(arr)); }
+    function loadHistory(){ try { return JSON.parse(localStorage.getItem(HISTORY_KEY) || '{}'); } catch(e){ return {}; } }
+    function saveHistory(obj){ localStorage.setItem(HISTORY_KEY, JSON.stringify(obj)); }
+    function recordPurchase(name, qty=1){
+      if(!name) return;
+      const h = loadHistory();
+      const key = name.toLowerCase();
+      h[key] = (h[key] || 0) + (qty || 1);
+      h['__last_'+key] = new Date().toISOString();
+      saveHistory(h);
     }
-    themeColor.addEventListener('change', ()=> applyPalette(themeColor.value));
-    applyPalette(themeColor.value);
-    darkToggle.addEventListener('change', () => {
-      if (darkToggle.checked) document.documentElement.classList.add('dark');
-      else document.documentElement.classList.remove('dark');
-    });
 
-    // ---------- recognition ----------
-    function initRecognition(){
-      if (!('webkitSpeechRecognition' in window) && !('SpeechRecognition' in window)){
-        showToast('Speech Recognition not supported — use Chrome', 'warning');
+    // categorization, substitutes, quantity parsing
+    const CATEGORY_KEYWORDS = {
+      Dairy: ['milk','cheese','yogurt','butter','paneer'],
+      Produce: ['apple','banana','orange','tomato','potato','onion','garlic','carrot','spinach','lettuce','mango','cucumber'],
+      Bakery: ['bread','bagel','bun','croissant'],
+      Drinks: ['water','juice','cola','coffee','tea','milk'],
+      Snacks: ['chips','biscuit','chocolate','cookie','cracker','snack'],
+      Frozen: ['ice cream','frozen','peas','pizza'],
+      Household: ['detergent','soap','shampoo','toilet paper','cleaner','bleach'],
+      Meat: ['chicken','beef','pork','fish','salmon'],
+      Spices: ['salt','pepper','turmeric','cumin','masala']
+    };
+    function categorizeItem(name){ const low=(name||'').toLowerCase(); for(const [cat,kws] of Object.entries(CATEGORY_KEYWORDS)) for(const kw of kws) if(low.includes(kw)) return cat; return 'Other'; }
+    const SUBSTITUTES = { 'milk': ['almond milk','soy milk','oat milk'], 'butter': ['margarine'], 'sugar': ['honey','maple syrup'], 'bread': ['baguette','wraps'] };
+    function getSubstitutes(name){ const low=(name||'').toLowerCase(); for(const k of Object.keys(SUBSTITUTES)) if(low.includes(k)) return SUBSTITUTES[k]; return []; }
+    const NUM_WORDS = {'one':1,'two':2,'three':3,'four':4,'five':5,'six':6,'seven':7,'eight':8,'nine':9,'ten':10};
+    function extractQuantity(text){ text=(text||'').trim(); let m = text.match(/^(\d+)\b/); if(m) return {qty:parseInt(m[1],10), rest:text.replace(m[0],'').trim()}; m=text.match(/^([a-z]+)\s+(.+)$/i); if(m && NUM_WORDS[m[1].toLowerCase()]) return {qty:NUM_WORDS[m[1].toLowerCase()], rest:m[2].trim()}; m=text.match(/(.+)\s+x\s+(\d+)/i); if(m) return {qty:parseInt(m[2],10), rest:m[1].trim()}; return {qty:'', rest:text}; }
+
+    // rendering helpers
+    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, m => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
+    function groupByCategory(items){ const m={}; items.forEach(it=>{ const cat = it.category || categorizeItem(it.name); if(!m[cat]) m[cat]=[]; m[cat].push(it); }); return m; }
+
+    // render main list
+    function render(){
+      const items = loadItems();
+      countEl.textContent = items.length + (items.length===1 ? ' item' : ' items');
+      itemsWrap.innerHTML = '';
+      if(items.length===0){ emptyState.style.display='block'; } else {
+        emptyState.style.display='none';
+        const grouped = groupByCategory(items);
+        Object.keys(grouped).sort().forEach(cat => {
+          const catSection = document.createElement('div'); catSection.className='category-section';
+          const header = document.createElement('div'); header.className='category-header';
+          header.innerHTML = `<strong>${escapeHtml(cat)}</strong><span class="cat-count">(${grouped[cat].length})</span>`;
+          catSection.appendChild(header);
+          const list = document.createElement('div'); list.className='category-list';
+          grouped[cat].forEach(it => {
+            const itemEl = document.createElement('div'); itemEl.className='item';
+            const left = document.createElement('div'); left.style.display='flex'; left.style.alignItems='center'; left.style.gap='12px';
+            const thumb = document.createElement('div'); thumb.className='thumb'; thumb.textContent = (it.name||'').charAt(0).toUpperCase();
+            const meta = document.createElement('div'); meta.className='item-meta';
+            const title = document.createElement('div'); title.className='item-title'; title.textContent = it.name;
+            const sub = document.createElement('div'); sub.className='item-sub'; sub.style.color='var(--muted)'; sub.textContent = (it.qty ? (it.qty + (it.qty>1 ? ' pcs' : ' pc')) : '');
+            meta.appendChild(title); meta.appendChild(sub);
+            left.appendChild(thumb); left.appendChild(meta);
+            itemEl.appendChild(left);
+
+            const actions = document.createElement('div'); actions.className='item-actions';
+            const dec = document.createElement('button'); dec.className='btn-ghost'; dec.textContent='-'; dec.onclick = ()=> adjustQty(findIndex(it), -1);
+            const inc = document.createElement('button'); inc.className='btn-ghost'; inc.textContent='+'; inc.onclick = ()=> adjustQty(findIndex(it), +1);
+            const rem = document.createElement('button'); rem.className='btn-ghost'; rem.textContent='Remove'; rem.onclick = ()=> removeItem(findIndex(it));
+            actions.appendChild(dec); actions.appendChild(inc); actions.appendChild(rem);
+            itemEl.appendChild(actions);
+
+            list.appendChild(itemEl);
+          });
+          catSection.appendChild(list);
+          itemsWrap.appendChild(catSection);
+        });
+      }
+      renderRecommendations();
+    }
+
+    function findIndex(item){
+      const items = loadItems();
+      for(let i=0;i<items.length;i++){
+        if(items[i].addedAt && item.addedAt && items[i].addedAt === item.addedAt) return i;
+      }
+      return items.findIndex(x => x.name.toLowerCase() === (item.name||'').toLowerCase());
+    }
+
+    // CRUD
+    function addItem(name, qty){
+      if(!name || !name.trim()) return;
+      name = name.trim();
+      const items = loadItems();
+      const idx = items.findIndex(i => i.name.toLowerCase() === name.toLowerCase());
+      if(idx >= 0){
+        if(qty) items[idx].qty = (parseInt(items[idx].qty||0,10) || 0) + qty;
+      } else {
+        const cat = categorizeItem(name);
+        items.push({ name, qty: qty || '', category: cat, addedAt: new Date().toISOString() });
+      }
+      saveItems(items);
+      recordPurchase(name, qty || 1);
+      render();
+      showSubstituteIfAny(name);
+    }
+    function removeItem(idx){ const items = loadItems(); if(idx<0||idx>=items.length) return; items.splice(idx,1); saveItems(items); render(); }
+    function adjustQty(idx, delta){ const items = loadItems(); if(idx<0||idx>=items.length) return; let cur = parseInt(items[idx].qty||0,10)||0; cur+=delta; if(cur<0) cur=0; items[idx].qty = cur; saveItems(items); render(); }
+
+    // ---------------- price/brand detection & search ----------------
+    function detectPriceFilterCommand(phrase){
+      if(!phrase || typeof phrase !== 'string') return null;
+      const p = phrase.toLowerCase().trim();
+      let m = p.match(/(?:find|show|search|look for|get|show me)?\s*(.+?)\s+(?:under|below|less than)\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)/);
+      if(m) return { q: m[1].trim(), min_price: null, max_price: parseFloat(m[2]), brand: null };
+      m = p.match(/(?:find|show|search|look for|get|show me)?\s*(.+?)\s+(?:from|by)\s+([a-z0-9\s]+?)\s+(?:under|below|less than)\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)/);
+      if(m) return { q: m[1].trim(), min_price: null, max_price: parseFloat(m[3]), brand: m[2].trim() };
+      m = p.match(/(?:find|show|search|look for|get|show me)?\s*(.+?)\s+between\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)\s+(?:and|-)\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)/);
+      if(m) return { q: m[1].trim(), min_price: parseFloat(m[2]), max_price: parseFloat(m[3]), brand: null };
+      m = p.match(/(?:find|show|search|look for|get|show me)?\s*(.+?)\s+(?:from|by)\s+([a-z0-9\s]+)/);
+      if(m) return { q: m[1].trim(), min_price: null, max_price: null, brand: m[2].trim() };
+      m = p.match(/^(.+?)\s+(?:under|below|less than)\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)/);
+      if(m) return { q: m[1].trim(), min_price: null, max_price: parseFloat(m[2]), brand: null };
+      m = p.match(/(?:find|show|search)?\s*(.+?)\s+(?:above|over|more than)\s*(?:₹|\u20B9|rs|rupees)?\s*([0-9]+(?:\.[0-9]+)?)/);
+      if(m) return { q: m[1].trim(), min_price: parseFloat(m[2]), max_price: null, brand: null };
+      return null;
+    }
+
+    // call an API route to find matching products (server-side implementation required)
+    async function searchProducts({ q='', min_price=null, max_price=null, brand=null, limit=20 } = {}){
+      const params = new URLSearchParams();
+      if(q) params.set('q', q);
+      if(min_price !== null && min_price !== undefined) params.set('min_price', String(min_price));
+      if(max_price !== null && max_price !== undefined) params.set('max_price', String(max_price));
+      if(brand) params.set('brand', brand);
+      params.set('limit', String(limit));
+      params.set('currency','INR');
+      const url = '/api/products/search?' + params.toString();
+      const res = await fetch(url);
+      if(!res.ok) throw new Error('product search failed');
+      return res.json();
+    }
+
+    async function handlePriceFilterCommand(phrase){
+      const pf = detectPriceFilterCommand(phrase);
+      if(!pf) return false;
+      if(recommendationsBox) recommendationsBox.innerHTML = '<div style="color:var(--muted)">Searching products…</div>';
+      try {
+        const data = await searchProducts(pf);
+        const items = Array.isArray(data) ? data : (data.items || []);
+        renderProductResults(items);
+      } catch(err){
+        console.warn('product search failed', err);
+        if(recommendationsBox) recommendationsBox.innerHTML = '<div style="color:var(--muted)">Product search failed.</div>';
+      }
+      return true;
+    }
+
+    function renderProductResults(items){
+      if(!recommendationsBox) return;
+      recommendationsBox.innerHTML = '';
+      if(!items || items.length === 0){
+        recommendationsBox.innerHTML = '<div style="color:var(--muted)">No products found for that filter.</div>';
         return;
       }
-      const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
-      recognition = new SpeechRecognition();
-      recognition.lang = 'en-US';
-      recognition.interimResults = true;
-      recognition.continuous = false;
-      recognition.maxAlternatives = 1;
-
-      recognition.onstart = () => {
-        listening = true;
-        micBtn.classList.add('listening');
-        micLabel.textContent = 'Listening...';
-        startMicPulse();
-      };
-      recognition.onend = () => {
-        listening = false;
-        micBtn.classList.remove('listening');
-        micLabel.textContent = 'Start';
-        stopMicPulse();
-        if (interimTranscript && interimTranscript.trim()) {
-          sendCommand(interimTranscript);
-          interimTranscript = '';
-        }
-      };
-      recognition.onerror = (e) => {
-        listening = false;
-        micBtn.classList.remove('listening');
-        micLabel.textContent = 'Start';
-        stopMicPulse();
-        showToast('Recognition error: ' + (e.error || 'unknown'), 'danger');
-      };
-      recognition.onresult = (evt) => {
-        let transcript = '';
-        for (let i=0;i<evt.results.length;i++) transcript += evt.results[i][0].transcript;
-        interimTranscript = transcript;
-        micBtn.setAttribute('data-heard', transcript);
-        if (evt.results[0].isFinal) {
-          sendCommand(transcript);
-          interimTranscript = '';
-        }
-      };
-    }
-
-    micBtn.addEventListener('click', ()=>{
-      if (!recognition) initRecognition();
-      if (!recognition) return;
-      try {
-        if (!listening) recognition.start();
-        else recognition.stop();
-      } catch(e) { console.warn(e); }
-    });
-
-    // ---------- mic pulse using GSAP ----------
-    let micPulseTween = null;
-    function startMicPulse(){
-      if (micPulseTween) micPulseTween.kill();
-      micPulseTween = gsap.to(micBtn, { scale: 1.04, yoyo: true, repeat: -1, duration: 0.7, ease: "sine.inOut", boxShadow: "0 16px 46px rgba(255,59,59,0.16)" });
-    }
-    function stopMicPulse(){
-      if (micPulseTween) micPulseTween.kill();
-      gsap.to(micBtn, { scale:1, boxShadow: "0 10px 30px rgba(11,123,255,0.12)", duration:0.28 });
-    }
-
-    // ---------- toast helper (Bootstrap + GSAP) ----------
-    // types: success, info, warning, danger
-    function showToast(message, type='success', timeout=3200) {
-      // create toast element
-      const id = 'toast-' + Date.now();
-      const bg = type==='success' ? 'text-bg-success' : type==='danger' ? 'text-bg-danger' : type==='warning' ? 'text-bg-warning' : 'text-bg-info';
-      const icon = type==='success' ? 'fa-check-circle' : type==='danger' ? 'fa-exclamation-circle' : type==='warning' ? 'fa-triangle-exclamation' : 'fa-info-circle';
-      const toastHtml = `
-        <div id="${id}" class="toast ${bg} align-items-center" role="alert" aria-live="assertive" aria-atomic="true">
-          <div class="d-flex">
-            <div class="toast-body">
-              <i class="fa ${icon}" style="margin-right:8px"></i>${escapeHtml(message)}
-            </div>
-            <button type="button" class="btn-close btn-close-white me-2 m-auto" data-bs-dismiss="toast" aria-label="Close"></button>
-          </div>
-        </div>`;
-      // append DOM
-      const tmp = document.createElement('div');
-      tmp.innerHTML = toastHtml;
-      const toastEl = tmp.firstElementChild;
-      toastWrapper.prepend(toastEl);
-
-      // set initial invisible state to animate in
-      gsap.set(toastEl, { x: 40, opacity: 0, scale: 0.96 });
-
-      // use Bootstrap toast API to handle autohide/hide
-      const bsToast = new bootstrap.Toast(toastEl, { delay: timeout, autohide: true });
-
-      // animate in with GSAP, then show bootstrap (which controls aria-hidden)
-      gsap.to(toastEl, { x: 0, opacity: 1, scale: 1, duration: 0.45, ease: "back.out(1.2)" });
-      bsToast.show();
-
-      // when toast hides (Bootstrap event), animate out and remove
-      toastEl.addEventListener('hidden.bs.toast', () => {
-        // animate out then remove
-        gsap.to(toastEl, { x: 40, opacity: 0, scale: 0.96, duration: 0.32, ease: "power2.in", onComplete: () => {
-          if (toastEl && toastEl.parentNode) toastEl.parentNode.removeChild(toastEl);
-        }});
+      const list = document.createElement('div'); list.style.display='flex'; list.style.flexDirection='column'; list.style.gap='10px';
+      items.forEach(p => {
+        const card = document.createElement('div');
+        card.style.display='flex'; card.style.justifyContent='space-between'; card.style.alignItems='center';
+        card.style.padding='10px'; card.style.border='1px solid rgba(99,102,241,0.06)'; card.style.borderRadius='8px';
+        card.style.boxShadow = '0 8px 22px rgba(81,226,245,0.06)';
+        const left = document.createElement('div'); left.style.display='flex'; left.style.flexDirection='column';
+        const name = document.createElement('div'); name.textContent = p.name; name.style.fontWeight='600';
+        const meta = document.createElement('div'); meta.style.color='var(--muted)'; meta.style.fontSize='13px';
+        meta.textContent = (p.brand ? p.brand + ' • ' : '') + (p.category || '');
+        left.appendChild(name); left.appendChild(meta);
+        const right = document.createElement('div'); right.style.display='flex'; right.style.flexDirection='column'; right.style.alignItems='flex-end'; right.style.gap='8px';
+        const price = document.createElement('div');
+        if (p.price_inr !== undefined && p.price_inr !== null) price.textContent = '₹' + Number(p.price_inr).toFixed(2);
+        else if (p.price !== undefined && p.price !== null) price.textContent = String(p.price);
+        else price.textContent = '—';
+        price.style.fontWeight='700';
+        const add = document.createElement('button'); add.className='btn-primary'; add.textContent='Add'; add.onclick = ()=> {
+          try { addItem(p.name,1); } catch(e){ console.warn('Add failed', e); }
+        };
+        right.appendChild(price); right.appendChild(add);
+        card.appendChild(left); card.appendChild(right); list.appendChild(card);
       });
-
-      // clicking close should hide (Bootstrap does this automatically), but ensure remove if never hidden
-      return toastEl;
+      recommendationsBox.appendChild(list);
     }
 
-    // ---------- backend helpers ----------
-    async function sendCommand(commandRaw){
-      const command = (commandRaw || '').trim();
-      if (!command) return;
-      try {
-        const res = await fetch('/process', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({command})});
-        const data = await res.json();
-        if (data.list) renderList(data.list);
-        if (data.suggestions) renderSuggestions(data.suggestions);
-        if (data.message) showToast(data.message, 'success');
-      } catch(e){
-        console.error(e);
-        showToast('Network error', 'danger');
+    // substitutes toast
+    function showSubstituteIfAny(name){
+      const subs = getSubstitutes(name);
+      if(!subs || subs.length === 0) return;
+      showSubstituteToast(name, subs);
+    }
+    function showSubstituteToast(original, subs){
+      const toast = substituteToastEl;
+      toast.innerHTML = `<div>Substitutes for "${escapeHtml(original)}"</div>`;
+      const list = document.createElement('div'); list.className='sub-list';
+      subs.forEach(s => {
+        const b = document.createElement('button'); b.className='btn-primary'; b.textContent = s;
+        b.onclick = ()=> { addItem(s,1); hideToast(); };
+        list.appendChild(b);
+      });
+      const close = document.createElement('button'); close.className='btn-ghost'; close.textContent='Close';
+      close.onclick = hideToast;
+      toast.appendChild(list); toast.appendChild(close);
+      toast.classList.remove('hidden'); setTimeout(()=> toast.classList.add('show'), 20);
+      window.clearTimeout(toast._dismissTimer); toast._dismissTimer = setTimeout(hideToast, 10000);
+    }
+    function hideToast(){ const toast = substituteToastEl; if(!toast) return; toast.classList.remove('show'); setTimeout(()=> toast.classList.add('hidden'), 240); }
+
+    // ---------------- speech recognition & voice-only flow ----------------
+    const SpeechRecognition = window.SpeechRecognition || window.webkitSpeechRecognition;
+    let recognition = null, listening = false, voiceOnly = false;
+    if(!SpeechRecognition){
+      console.warn('SpeechRecognition not available in this browser. Use Chrome/Edge on localhost/HTTPS.');
+      setStatus('not supported');
+      if(micBtn) micBtn.disabled = true;
+    } else {
+      recognition = new SpeechRecognition();
+      recognition.lang = 'en-IN';
+      recognition.interimResults = true;
+      recognition.continuous = true;
+
+      recognition.onstart = ()=> {
+        listening = true;
+        setStatus('listening...');
+        micBtn && micBtn.setAttribute('aria-pressed','true');
+        micLabel && (micLabel.textContent='Listening');
+        micBtn && micBtn.classList.add('listening');
+      };
+
+      recognition.onend = ()=> {
+        listening = false;
+        setStatus('idle');
+        micBtn && micBtn.setAttribute('aria-pressed','false');
+        micLabel && (micLabel.textContent='Start Listening');
+        micBtn && micBtn.classList.remove('listening');
+        // if voiceOnly is active, we keep overlay until user toggles or says stop
+      };
+
+      recognition.onerror = (e) => { console.error('Speech error', e); setStatus(e.error || 'error'); };
+
+      recognition.onresult = async (ev) => {
+        let interim = '', finalTranscript = '';
+        for(let i = ev.resultIndex; i < ev.results.length; ++i){
+          const res = ev.results[i];
+          if(res.isFinal) finalTranscript += res[0].transcript + ' ';
+          else interim += res[0].transcript + ' ';
+        }
+        if(interim) textInput.value = interim.trim();
+        if(finalTranscript){
+          const final = finalTranscript.trim();
+          // try price/brand search first (server-backed)
+          try {
+            const handled = await handlePriceFilterCommand(final);
+            if(!handled){
+              // fallback to local parsing & CRUD
+              await parseAndApply(final);
+            }
+          } catch(e){
+            console.error('parse error', e);
+            await parseAndApply(final);
+          }
+          textInput.value = '';
+          if(voiceOnly){
+            listenMsg.textContent = final;
+          }
+        }
+      };
+    }
+
+    // mic button start/stop
+    micBtn && micBtn.addEventListener('click', async ()=> {
+      if(!recognition) return;
+      if(!listening){
+        try { await navigator.mediaDevices.getUserMedia({ audio:true }); } catch(err){ console.warn('Mic permission denied', err); setStatus('microphone denied'); return; }
+        try { recognition.start(); } catch(e){ console.warn('recognition start failed', e); }
+      } else {
+        try { recognition.stop(); } catch(e){ console.warn('recognition stop failed', e); }
+      }
+    });
+    micBtn && micBtn.addEventListener('keydown', e=>{ if(e.key==='Enter' || e.key===' ') { e.preventDefault(); micBtn.click(); } });
+
+    // add button & keyboard
+    addBtn && addBtn.addEventListener('click', async ()=> { if(textInput.value.trim()){ await parseAndApply(textInput.value.trim()); textInput.value=''; } });
+    textInput && textInput.addEventListener('keydown', async (e)=> { if(e.key === 'Enter') await parseAndApply(textInput.value.trim()); });
+
+    // ---------------- parse & apply (local fallback) ----------------
+    // make parseAndApply async so caller can await the price/brand search
+    async function parseAndApply(phrase){
+      if(!phrase) return;
+      const s = phrase.trim();
+      const lower = s.toLowerCase();
+
+      // first, if this *looks* like a price/brand search, handle it and stop
+      const pf = detectPriceFilterCommand(s);
+      if(pf){
+        const handled = await handlePriceFilterCommand(s);
+        if(handled) return;
+      }
+
+      if(/^(clear|clear list|empty list|remove all|delete all)$/.test(lower)){ localStorage.removeItem(STORAGE_KEY); render(); return; }
+
+      let m = lower.match(/^(?:replace|substitute|swap)\s+(.+?)\s+(?:with|to)\s+(.+)$/);
+      if(m){ const from = m[1].trim(), to = m[2].trim(); const items = loadItems(); const idx = items.findIndex(i=>i.name.toLowerCase() === from.toLowerCase()); if(idx>=0){ items[idx].name = to; items[idx].category = categorizeItem(to); saveItems(items); render(); } else { await parseAndApply('add ' + to); } return; }
+
+      m = lower.match(/^(?:set|change)\s+(.+?)\s+to\s+(\d+)\b/);
+      if(m){ const name = m[1].trim(), qty = parseInt(m[2],10); const items = loadItems(); const idx = items.findIndex(i=>i.name.toLowerCase() === name.toLowerCase()); if(idx>=0){ items[idx].qty = qty; saveItems(items); render(); } return; }
+
+      m = lower.match(/^(?:remove|delete)\s+(\d+)\s+(.+)$/);
+      if(m){ const qty = parseInt(m[1],10), name = m[2].trim(); const items = loadItems(); const idx = items.findIndex(i=>i.name.toLowerCase() === name.toLowerCase()); if(idx>=0){ const cur = parseInt(items[idx].qty||0,10)||0; const after = Math.max(0, cur - qty); if(after===0) items.splice(idx,1); else items[idx].qty = after; saveItems(items); render(); } return; }
+
+      m = lower.match(/^(?:remove|delete)\s+(.+)$/);
+      if(m){ const name = m[1].trim(); const items = loadItems(); let idx = items.findIndex(i=>i.name.toLowerCase() === name.toLowerCase()); if(idx>=0) removeItem(idx); else { idx = items.findIndex(i => name.includes(i.name.toLowerCase()) || i.name.toLowerCase().includes(name)); if(idx>=0) removeItem(idx); } return; }
+
+      m = lower.match(/^(?:add|buy|put|i want to buy|i need)\s+(.+)$/);
+      let rest = m ? m[1].trim() : lower;
+      if(rest.includes(' and ')){ rest.split(/\s+and\s+/).forEach(p=> parseAndApply(p)); return; }
+      const q = extractQuantity(rest);
+      const qty = (typeof q.qty === 'number' && !isNaN(q.qty)) ? q.qty : (q.qty === '' ? '' : parseInt(q.qty,10));
+      const name = q.rest || rest;
+      addItem(name, qty || 1);
+    }
+
+    // ---------------- recommendations ----------------
+    function topHistory(limit=6){ const h=loadHistory(); const e=Object.entries(h).filter(([k])=>!k.startsWith('__last_')); e.sort((a,b)=>b[1]-a[1]); return e.slice(0,limit).map(x=>x[0]); }
+    function seasonalSuggestions(){ const SEASONAL = {1:['oranges'],2:['strawberries'],3:['mango'],4:['mango','peach'],5:['watermelon'],6:['watermelon'],7:['berries','corn'],8:['corn','peaches'],9:['apples','pumpkin'],10:['pumpkin'],11:['pomegranate'],12:['oranges','nuts']}; return SEASONAL[new Date().getMonth()+1] || []; }
+
+    function renderRecommendations(){
+      if(!recommendationsBox) return;
+      recommendationsBox.innerHTML = '';
+      const top = topHistory(6);
+      if(top.length){
+        const block = document.createElement('div'); block.className='rec-block';
+        const title = document.createElement('div'); title.className='rec-title'; title.textContent = 'Recommended (based on history)';
+        const wrap = document.createElement('div'); wrap.className='rec-wrap';
+        const current = new Set(loadItems().map(i=>i.name.toLowerCase()));
+        top.forEach(name=>{
+          if(current.has(name)) return;
+          const btn = document.createElement('button'); btn.className='rec-btn btn-primary'; btn.textContent = name; btn.addEventListener('click', ()=> addItem(name,1));
+          wrap.appendChild(btn);
+        });
+        block.appendChild(title); block.appendChild(wrap); recommendationsBox.appendChild(block);
+      }
+      const seasonal = seasonalSuggestions();
+      if(seasonal.length){
+        const block = document.createElement('div'); block.className='rec-block';
+        const title = document.createElement('div'); title.className='rec-title'; title.textContent = 'Seasonal';
+        const wrap = document.createElement('div'); wrap.className='rec-wrap';
+        seasonal.forEach(name=>{ const btn=document.createElement('button'); btn.className='rec-btn btn-ghost'; btn.textContent=name; btn.addEventListener('click', ()=> addItem(name,1)); wrap.appendChild(btn); });
+        block.appendChild(title); block.appendChild(wrap); recommendationsBox.appendChild(block);
       }
     }
 
-    async function loadList(){
-      const r = await fetch('/list');
-      const d = await r.json();
-      renderList(d.list);
+    // ---------------- theme handling ----------------
+    function applyTheme(t){ if(t==='dark') document.documentElement.setAttribute('data-theme','dark'); else document.documentElement.removeAttribute('data-theme'); }
+    const storedTheme = localStorage.getItem(THEME_KEY);
+    if(storedTheme) applyTheme(storedTheme); else {
+      const prefersDark = window.matchMedia && window.matchMedia('(prefers-color-scheme: dark)').matches;
+      applyTheme(prefersDark ? 'dark' : 'light');
+    }
+    if(themeToggle){
+      themeToggle.addEventListener('click', ()=> {
+        const nowDark = document.documentElement.getAttribute('data-theme') === 'dark';
+        const next = nowDark ? 'light' : 'dark';
+        applyTheme(next);
+        localStorage.setItem(THEME_KEY,next);
+        themeToggle.setAttribute('aria-checked', next === 'dark' ? 'true' : 'false');
+      });
+      themeToggle.setAttribute('aria-checked', document.documentElement.getAttribute('data-theme') === 'dark' ? 'true' : 'false');
     }
 
-    // ---------- render + animations ----------
-    function renderList(list){
-      shoppingListDiv.innerHTML = '';
-      const groups = {};
-      list.forEach(i => {
-        const cat = (i.category || 'misc').toUpperCase();
-        groups[cat] = groups[cat] || [];
-        groups[cat].push(i);
-      });
+    // ---------------- init & helpers ----------------
+    function setStatus(t){ if(statusEl) statusEl.textContent = 'Status: ' + t; }
+    function init(){ render(); setStatus('idle'); }
+    init();
 
-      const tl = gsap.timeline();
-      let idx = 0;
-      Object.keys(groups).forEach(cat => {
-        const head = document.createElement('div');
-        head.innerHTML = `<div style="font-size:0.82rem;color:var(--muted);margin-top:6px;margin-bottom:6px">${cat}</div>`;
-        shoppingListDiv.appendChild(head);
-        groups[cat].forEach(item => {
-          const row = document.createElement('div');
-          row.className = 'item-row';
-          row.innerHTML = `
-            <div style="display:flex;align-items:center">
-              <div class="quantity">${escapeHtml(item.quantity)}</div>
-              <div><strong>${escapeHtml(item.item)}</strong><div style="font-size:0.82rem;color:var(--muted)">${escapeHtml(item.category)}</div></div>
-            </div>
-            <div><button class="remove-btn" data-item="${escapeJs(item.item)}"><i class="fa fa-trash"></i></button></div>
-          `;
-          shoppingListDiv.appendChild(row);
-          tl.fromTo(row, { y: 18, opacity:0, scale:0.995 }, { y:0, opacity:1, scale:1, duration:0.56, ease: "back.out(1.2)" }, idx * 0.06);
-          idx++;
-        });
-      });
+    // expose for debug & external use
+    window.voiceShopping = { addItem, removeItem, parseAndApply, render, loadItems };
 
-      setTimeout(()=> {
-        document.querySelectorAll('.remove-btn').forEach(b => {
-          b.onclick = async () => {
-            const item = b.getAttribute('data-item');
-            const parentRow = b.closest('.item-row');
-            await gsap.to(parentRow, { scale:0.96, opacity:0, y:-6, duration:0.28, ease:"power2.in" });
-            await sendCommand('remove ' + item);
-            loadList();
-          };
-        });
-      }, 80);
+    // ---------------- voice-only mode handling ----------------
+    function listeningOverlayShow(show){
+      if(!listeningOverlay) return;
+      if(show){ listeningOverlay.classList.add('show'); listeningOverlay.setAttribute('aria-hidden','false'); }
+      else { listeningOverlay.classList.remove('show'); listeningOverlay.setAttribute('aria-hidden','true'); }
     }
 
-    function renderSuggestions(arr){
-      suggestionsDiv.innerHTML = '';
-      arr.slice(0,12).forEach((s, i) => {
-        const chip = document.createElement('div');
-        chip.className = 'chip';
-        chip.textContent = s;
-        chip.style.transform = 'scale(0.75)';
-        chip.style.opacity = '0';
-        suggestionsDiv.appendChild(chip);
-        gsap.to(chip, { scale:1, opacity:1, duration:0.7, ease: "elastic.out(1, 0.55)", delay: i * 0.04 });
-        chip.onclick = async ()=> {
-          await gsap.fromTo(chip, { scale:1 }, { scale:0.95, duration:0.09, yoyo:true, repeat:1, ease:'power1.inOut' });
-          await sendCommand('add ' + s);
-          loadList();
-        };
-      });
+    function startVoiceOnlyMode(){
+      if(!recognition){ alert('SpeechRecognition not supported in this browser.'); return; }
+      voiceOnly = true;
+      voiceOnlyToggle.classList.add('active');
+      listeningOverlayShow(true);
+      try { recognition.start(); } catch(e){ console.warn('start voice-only start error', e); }
+    }
+    function stopVoiceOnlyMode(){
+      voiceOnly = false;
+      voiceOnlyToggle.classList.remove('active');
+      listeningOverlayShow(false);
+      try { recognition.stop(); } catch(e){ /* ignore */ }
     }
 
-    function escapeHtml(s){ return String(s).replace(/[&<>"']/g, (m)=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[m])); }
-    function escapeJs(s){ return String(s).replace(/'/g, "\\'"); }
+    if(voiceOnlyToggle){
+      voiceOnlyToggle.addEventListener('click', ()=>{ if(!voiceOnly) startVoiceOnlyMode(); else stopVoiceOnlyMode(); });
+    }
 
-    clearBtn.addEventListener('click', async ()=> {
-      if (!confirm('Clear the shopping list?')) return;
-      await fetch('/clear', { method:'POST' });
-      loadList();
-      showToast('List cleared', 'info');
-    });
+    // update overlay when recognition yields final results (also stop command detection)
+    if(recognition){
+      const origOnResult = recognition.onresult;
+      recognition.onresult = async function(ev){
+        try { if(origOnResult) await origOnResult.call(this, ev); } catch(e){ console.error(e); }
+        if(!voiceOnly) return;
+        let text = '';
+        for(let i=ev.resultIndex;i<ev.results.length;++i){
+          if(ev.results[i].isFinal) text += ev.results[i][0].transcript + ' ';
+        }
+        if(text){
+          const t = text.trim().toLowerCase();
+          listenMsg.textContent = t;
+          if(t.includes('stop') || t.includes('exit') || t.includes('quit')) stopVoiceOnlyMode();
+        }
+      };
+    }
 
-    // initial load & suggestions
-    loadList();
-    (async ()=> {
-      const r = await fetch('/process', { method:'POST', headers:{'Content-Type':'application/json'}, body: JSON.stringify({command:'suggest'})});
-      const d = await r.json();
-      if (d.suggestions) renderSuggestions(d.suggestions);
-    })();
+  })();
   </script>
 </body>
 </html>
